@@ -31,6 +31,7 @@
             this.btnGetGpx = new System.Windows.Forms.Button();
             this.txtActivityId = new System.Windows.Forms.TextBox();
             this.label1 = new System.Windows.Forms.Label();
+            this.saveFileDialog = new System.Windows.Forms.SaveFileDialog();
             this.SuspendLayout();
             // 
             // btnGetGpx
@@ -62,6 +63,11 @@
             this.label1.TabIndex = 2;
             this.label1.Text = "Strava activity ID:";
             // 
+            // saveFileDialog
+            // 
+            this.saveFileDialog.DefaultExt = "*.gpx";
+            this.saveFileDialog.Filter = "All Files|*.*|Gpx files|*.gpx";
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -85,6 +91,7 @@
         private System.Windows.Forms.Button btnGetGpx;
         private System.Windows.Forms.TextBox txtActivityId;
         private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.SaveFileDialog saveFileDialog;
     }
 }
 

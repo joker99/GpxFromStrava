@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Data.SQLite;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -13,54 +15,90 @@ namespace GpxFromStrava
 {
     public partial class Form1 : Form
     {
+        private static string StravaDomain = "app.strava.com";
         public Form1()
         {
             InitializeComponent();
         }
 
-        private void btnGetGpx_Click(object sender, EventArgs e)
+        private async void btnGetGpx_Click(object sender, EventArgs e)
         {
+            if (txtActivityId.Text == string.Empty)
+                return;
+            try
+            {
+                var rawData = await DownloadRawData("http://app.strava.com/stream/" + txtActivityId.Text + "?streams[]=latlng");
+                var gpxData = ConvertJsonToGpx(rawData);
+                saveFileDialog.FileName = txtActivityId.Text + ".gpx";
+                if (saveFileDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                {
+                    File.WriteAllText(saveFileDialog.FileName, gpxData);
+                }
+            }
+            catch(Exception ex)
+            {
+                MessageBox.Show(ex.ToString());
+            }
+        }
 
+        private static string GPS_PREFIX =
+@"<?xml version='1.0' encoding='UTF-8'?>
+<gpx xmlns='http://www.topografix.com/GPX/1/1' creator='GpxFromStrava' version='1.1' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd'>
+  <trk>
+    <trkseg>";
+
+        private static string GPS_POSTFIX = 
+@"    </trkseg>
+  </trk>
+</gpx>";
+
+        private static string ConvertJsonToGpx(string json)
+        {
+            // replaces
+            string gpx = json;
+            string[] key = {"]}","{\"latlng\":[","[","],","," };
+            string[] value = {",",string.Empty,"<trkpt lat=\"","\"/>","\" lon=\"" };
+            for (var i = 0; i < key.Length; i++)
+            {
+                gpx = gpx.Replace(key[i], value[i]);
+            }
+            return GPS_PREFIX + gpx + GPS_POSTFIX;
+
+        }
+
+        private static async Task<string> DownloadRawData(string url)
+        {
+            string cookieHeader = GetAllCookies_FireFox(StravaDomain);
+            WebClient webClient = new WebClient();
+            webClient.Headers.Add(HttpRequestHeader.Cookie, cookieHeader);
+            var res = await webClient.DownloadDataTaskAsync(new Uri(url));
+            return Encoding.UTF8.GetString(res);
         }
 
 
         private static string GetFireFoxCookiePath()
         {
-            string profilePath = Environment.GetFolderPath(
-                             Environment.SpecialFolder.ApplicationData);
-            profilePath += @"\Mozilla\Firefox\Profiles\";
-
-            try
-            {
-                string[] dir = Directory.GetDirectories("*.default");
-                if (dir.Length != 1)
-                    return string.Empty;
-
-                profilePath += dir[0] + @"\" + "cookies.sqlite";
-            }
-            catch (Exception)
-            {
-                return string.Empty;
-            }
-
-            if (!File.Exists(profilePath))
+            string profilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Mozilla\Firefox\Profiles\");
+            string[] dir = Directory.GetDirectories(profilePath, "*.default");
+            if (dir.Length != 1)
                 return string.Empty;
 
-            return profilePath;
+            var cookiePath = dir[0] + @"\" + "cookies.sqlite";
+            if (!File.Exists(cookiePath))
+                return string.Empty;
+            return cookiePath;
         }
 
-        /*
-        private static bool GetCookie_FireFox(string strHost, string strField, ref string Value)
+        //Adapted from http://www.codeproject.com/Articles/330142/Cookie-Quest-A-Quest-to-Read-Cookies-from-Four-Pop
+        private static string GetAllCookies_FireFox(string strHost)
         {
-            Value = string.Empty;
-            bool fRtn = false;
             string strPath, strTemp, strDb;
             strTemp = string.Empty;
 
             // Check to see if FireFox Installed
             strPath = GetFireFoxCookiePath();
             if (string.Empty == strPath) // Nope, perhaps another browser
-                return false;
+                return null;
 
             try
             {
@@ -78,39 +116,30 @@ namespace GpxFromStrava
                 {
                     using (SQLiteCommand cmd = conn.CreateCommand())
                     {
-                        cmd.CommandText = "SELECT value FROM moz_cookies WHERE host LIKE '%" +
-                            strHost + "%' AND name LIKE '%" + strField + "%';";
+                        cmd.CommandText = "SELECT name, value FROM moz_cookies WHERE host LIKE '%" +
+                            strHost + "%';";
 
                         conn.Open();
-                        using (SQLiteDataReader reader = cmd.ExecuteReader())
+                        CookieContainer cookies = new CookieContainer();
+                        using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
                             {
-                                Value = reader.GetString(0);
-                                if (!Value.Equals(string.Empty))
-                                {
-                                    fRtn = true;
-                                    break;
-                                }
+                                cookies.Add(new Cookie(reader.GetString(0), reader.GetString(1), "/", StravaDomain));
                             }
                         }
-                        conn.Close();
+                        return cookies.GetCookieHeader(new Uri("https://" + StravaDomain));
                     }
                 }
             }
-            catch (Exception)
+            finally
             {
-                Value = string.Empty;
-                fRtn = false;
+                // All done clean up
+                if (string.Empty != strTemp)
+                {
+                    File.Delete(strTemp);
+                }
             }
-
-            // All done clean up
-            if (string.Empty != strTemp)
-            {
-                File.Delete(strTemp);
-            }
-            return fRtn;
         }
-         * */
     }
 }
