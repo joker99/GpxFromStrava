@@ -28,8 +28,8 @@ namespace GpxFromStrava
             try
             {
                 var rawData = await DownloadRawData("http://app.strava.com/stream/" + txtActivityId.Text + "?streams[]=latlng");
-                var gpxData = ConvertJsonToGpx(rawData);
-                saveFileDialog.FileName = txtActivityId.Text + ".gpx";
+                var gpxData = ConvertJsonToGpx(rawData); 
+                saveFileDialog.FileName = txtActivityId.Text + ".gpx"; 
                 if (saveFileDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
                 {
                     File.WriteAllText(saveFileDialog.FileName, gpxData);
