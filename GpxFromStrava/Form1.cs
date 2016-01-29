@@ -56,6 +56,9 @@ namespace GpxFromStrava
         {
             // replaces
             string gpx = json;
+            var distance = gpx.IndexOf(@",""distance""");
+            if (distance > 0)
+                gpx = gpx.Substring(0, distance) + "}";
             string[] key = {"]}","{\"latlng\":[","[","],","," };
             string[] value = {",",string.Empty,"<trkpt lat=\"","\"/>","\" lon=\"" };
             for (var i = 0; i < key.Length; i++)
